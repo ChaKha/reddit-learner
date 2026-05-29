@@ -60,7 +60,7 @@
       });
       
       // App Version
-      const APP_VERSION = "2.1.6";
+      const APP_VERSION = "2.1.7";
       
       const [stats, setStats] = useState({ 
         total: 0, 
@@ -2557,26 +2557,38 @@
       };
 
       if (viewingCollage) {
-        // Show all liked and favorited posts (no seenImages filter)
-        const seenAndLikedItems = collageItems;
+        // Build collage: all liked + favorited, sorted by timestamp descending (most recent first)
+        const buildCollageItems = () => {
+          const allItems = [
+            ...(preferences.like || []),
+            ...(preferences.love || [])
+          ];
+          // Deduplicate by id (in case an item appears in both arrays)
+          const seen = new Set();
+          const deduped = allItems.filter(item => {
+            if (seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+          });
+          // Sort by timestamp descending — most recent first, oldest last
+          return deduped.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        };
+
+        const seenAndLikedItems = buildCollageItems();
         
         const refreshCollage = () => {
-          console.log('🔄 Refreshing collage - showing ALL liked and favorited posts');
+          console.log('🔄 Resetting collage — rebuilding from all liked and favorited posts');
           
-          const allLiked = preferences.like || [];
-          const allLoved = preferences.love || [];
-          const total = allLiked.length + allLoved.length;
+          const rebuilt = buildCollageItems();
+          console.log(`   Liked: ${(preferences.like || []).length}, Favorited: ${(preferences.love || []).length}`);
+          console.log(`   Total after dedup + sort: ${rebuilt.length}`);
           
-          console.log(`   Liked posts: ${allLiked.length}`);
-          console.log(`   Favorited posts: ${allLoved.length}`);
-          console.log(`   Total to show: ${total}`);
-          
-          // Force re-render by toggling viewingCollage
+          // Force full remount so the grid rebuilds cleanly
           setViewingCollage(false);
           setTimeout(() => {
             setViewingCollage(true);
-            console.log('✅ Collage refreshed with all liked and favorited posts');
-          }, 100);
+            console.log('✅ Collage reset complete');
+          }, 50);
         };
         
         return (
@@ -2585,10 +2597,10 @@
               <button
                 onClick={refreshCollage}
                 className="bg-blue-500/80 hover:bg-blue-600/80 text-white px-4 py-2 rounded-lg backdrop-blur-sm flex items-center gap-2"
-                title="Sync collage with current liked posts"
+                title="Wipe and rebuild collage from all liked and favorited posts, most recent first"
               >
                 <span>🔄</span>
-                Refresh
+                Reset
               </button>
               <button
                 onClick={toggleAutoScroll}
